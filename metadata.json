@@ -1,0 +1,5 @@
+{
+  "name": "LINEAR ASCENT — The Descent of Loss",
+  "description": "A neural network themed puzzle game where you tune initial bias and learning rates to achieve convergence in the loss landscape.",
+  "requestFramePermissions": []
+}

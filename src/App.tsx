@@ -1,0 +1,525 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Cpu, 
+  Zap, 
+  Activity, 
+  Target, 
+  RefreshCw, 
+  Play, 
+  AlertTriangle, 
+  CheckCircle2,
+  ChevronRight,
+  Settings2,
+  Info
+} from 'lucide-react';
+
+// --- Types ---
+
+interface Level {
+  id: number;
+  name: string;
+  targetValue: number;
+  maxSteps: number;
+  tolerance: number;
+  landscapeFn: (x: number) => number;
+  description: string;
+}
+
+// --- Constants ---
+
+const LEVELS: Level[] = [
+  {
+    id: 1,
+    name: "Neuron Alpha: Initial Activation",
+    targetValue: 100,
+    maxSteps: 10,
+    tolerance: 2,
+    landscapeFn: (x) => x, // Linear
+    description: "The simplest path. Find the pulse that reaches exactly 100 in 10 steps or less."
+  },
+  {
+    id: 2,
+    name: "Neuron Beta: The Shallow Valley",
+    targetValue: 250,
+    maxSteps: 15,
+    tolerance: 5,
+    landscapeFn: (x) => x * 1.2, // Slightly steeper
+    description: "The ground is shifting. Your pulse must be more precise to hit the target voltage."
+  },
+  {
+    id: 3,
+    name: "Neuron Gamma: Stochastic Noise",
+    targetValue: 500,
+    maxSteps: 12,
+    tolerance: 10,
+    landscapeFn: (x) => x + Math.sin(x / 20) * 30, // Wavy
+    description: "The landscape is non-linear. Local minima are everywhere. Navigate the waves."
+  },
+  {
+    id: 4,
+    name: "Neuron Delta: The Deep Abyss",
+    targetValue: 1000,
+    maxSteps: 8,
+    tolerance: 15,
+    landscapeFn: (x) => (x * x) / 100, // Parabolic
+    description: "Exponential growth. A small change in pulse leads to massive leaps. Beware the Exploding Gradient."
+  }
+];
+
+// --- Components ---
+
+const LossLandscape = ({ 
+  steps, 
+  target, 
+  tolerance, 
+  landscapeFn,
+  isSimulating 
+}: { 
+  steps: number[], 
+  target: number, 
+  tolerance: number,
+  landscapeFn: (x: number) => number,
+  isSimulating: boolean
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width;
+    const height = rect.height;
+
+    // Clear
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw Grid
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < width; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, height);
+      ctx.stroke();
+    }
+    for (let i = 0; i < height; i += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(width, i);
+      ctx.stroke();
+    }
+
+    // Draw Target Line
+    const targetY = height - (target / 1200) * height;
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(0, targetY);
+    ctx.lineTo(width, targetY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw Tolerance Zone
+    ctx.fillStyle = 'rgba(0, 255, 0, 0.05)';
+    const tolH = (tolerance / 1200) * height * 2;
+    ctx.fillRect(0, targetY - tolH / 2, width, tolH);
+
+    // Draw Landscape
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x < width; x++) {
+      const val = landscapeFn(x * 2); // Scale x for function
+      const y = height - (val / 1200) * height;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw Steps (The Bridge of Logic)
+    if (steps.length > 0) {
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      steps.forEach((val, i) => {
+        const x = (i / 15) * width; // Max 15 steps visually
+        const y = height - (val / 1200) * height;
+        
+        // Draw point
+        ctx.fillStyle = i === steps.length - 1 ? '#00ff00' : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw connection
+        if (i > 0) {
+          const prevX = ((i - 1) / 15) * width;
+          const prevY = height - (steps[i - 1] / 1200) * height;
+          
+          const gradient = ctx.createLinearGradient(prevX, prevY, x, y);
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+          gradient.addColorStop(1, '#00ff00');
+          ctx.strokeStyle = gradient;
+          
+          ctx.beginPath();
+          ctx.moveTo(prevX, prevY);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
+      });
+    }
+
+  }, [steps, target, tolerance, landscapeFn, isSimulating]);
+
+  return (
+    <canvas 
+      ref={canvasRef} 
+      className="w-full h-64 bg-[#0a0a0a] border border-white/10 rounded-lg"
+      style={{ touchAction: 'none' }}
+    />
+  );
+};
+
+export default function App() {
+  const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
+  const [a, setA] = useState(0); // Initial Bias
+  const [d, setD] = useState(10); // Learning Rate
+  const [steps, setSteps] = useState<number[]>([]);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [gameState, setGameState] = useState<'idle' | 'success' | 'fail'>('idle');
+  const [message, setMessage] = useState('');
+
+  const currentLevel = LEVELS[currentLevelIdx];
+
+  const runSimulation = () => {
+    setIsSimulating(true);
+    setGameState('idle');
+    setMessage('Simulating Stochastic Descent...');
+    
+    let currentSteps: number[] = [a];
+    let i = 0;
+    
+    const interval = setInterval(() => {
+      if (i >= currentLevel.maxSteps - 1) {
+        clearInterval(interval);
+        finalizeSimulation(currentSteps);
+        return;
+      }
+
+      const nextVal = currentLevel.landscapeFn(currentSteps[i] + d);
+      currentSteps.push(nextVal);
+      setSteps([...currentSteps]);
+      i++;
+
+      // Check for Exploding Gradient (overshoot)
+      if (nextVal > currentLevel.targetValue + 200) {
+        clearInterval(interval);
+        finalizeSimulation(currentSteps, true);
+      }
+    }, 150);
+  };
+
+  const finalizeSimulation = (finalSteps: number[], exploded = false) => {
+    setIsSimulating(false);
+    const lastVal = finalSteps[finalSteps.length - 1];
+    const diff = Math.abs(lastVal - currentLevel.targetValue);
+
+    if (exploded) {
+      setGameState('fail');
+      setMessage('EXPLODING GRADIENT: System unstable. You overshot the target valley.');
+    } else if (diff <= currentLevel.tolerance) {
+      setGameState('success');
+      setMessage('CONVERGENCE ACHIEVED: Optimal weights found. Neuron firing.');
+    } else if (finalSteps.length >= currentLevel.maxSteps) {
+      setGameState('fail');
+      if (lastVal < currentLevel.targetValue) {
+        setMessage('VANISHING GRADIENT: Signal too weak. Failed to reach activation threshold.');
+      } else {
+        setMessage('LOCAL MINIMUM: Trapped in suboptimal logic. Adjust parameters.');
+      }
+    }
+  };
+
+  const resetLevel = () => {
+    setSteps([]);
+    setGameState('idle');
+    setMessage('');
+  };
+
+  const nextLevel = () => {
+    if (currentLevelIdx < LEVELS.length - 1) {
+      setCurrentLevelIdx(prev => prev + 1);
+      setA(0);
+      setD(10);
+      resetLevel();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050505] text-white font-mono selection:bg-emerald-500/30">
+      {/* Header */}
+      <header className="border-b border-white/10 p-6 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+            <Cpu className="w-6 h-6 text-emerald-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tighter uppercase italic">Linear Ascent</h1>
+            <p className="text-[10px] text-white/40 uppercase tracking-widest">Neural Network Architect v1.0.4</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] text-white/40 uppercase">System Status</p>
+            <p className="text-xs text-emerald-400 flex items-center gap-1 justify-end">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              Operational
+            </p>
+          </div>
+          <div className="h-8 w-px bg-white/10" />
+          <div className="flex flex-col items-end">
+            <p className="text-[10px] text-white/40 uppercase">Level</p>
+            <p className="text-sm font-bold">{currentLevelIdx + 1} / {LEVELS.length}</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column: Game View */}
+        <div className="lg:col-span-7 space-y-6">
+          <section className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs uppercase font-bold tracking-wider">Loss Landscape Visualizer</span>
+              </div>
+              <div className="flex gap-4 text-[10px] uppercase text-white/40">
+                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-emerald-400 rounded-full" /> Target</span>
+                <span className="flex items-center gap-1"><div className="w-2 h-2 bg-white/40 rounded-full" /> Signal</span>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <LossLandscape 
+                steps={steps} 
+                target={currentLevel.targetValue} 
+                tolerance={currentLevel.tolerance}
+                landscapeFn={currentLevel.landscapeFn}
+                isSimulating={isSimulating}
+              />
+              
+              <div className="mt-6 grid grid-cols-3 gap-4">
+                <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                  <p className="text-[10px] text-white/40 uppercase mb-1">Target Voltage</p>
+                  <p className="text-lg font-bold text-emerald-400">{currentLevel.targetValue}mV</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                  <p className="text-[10px] text-white/40 uppercase mb-1">Current Signal</p>
+                  <p className="text-lg font-bold">{steps.length > 0 ? Math.round(steps[steps.length - 1]) : 0}mV</p>
+                </div>
+                <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                  <p className="text-[10px] text-white/40 uppercase mb-1">Step Count</p>
+                  <p className="text-lg font-bold">{steps.length} / {currentLevel.maxSteps}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <AnimatePresence mode="wait">
+            {gameState !== 'idle' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className={`p-4 rounded-xl border flex items-start gap-4 ${
+                  gameState === 'success' 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                    : 'bg-red-500/10 border-red-500/30 text-red-400'
+                }`}
+              >
+                {gameState === 'success' ? <CheckCircle2 className="w-6 h-6 shrink-0" /> : <AlertTriangle className="w-6 h-6 shrink-0" />}
+                <div>
+                  <h3 className="font-bold uppercase text-sm">{gameState === 'success' ? 'Convergence Success' : 'Convergence Failure'}</h3>
+                  <p className="text-xs opacity-80 mt-1">{message}</p>
+                  {gameState === 'success' && (
+                    <button 
+                      onClick={nextLevel}
+                      className="mt-3 flex items-center gap-2 bg-emerald-500 text-[#050505] px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-400 transition-colors uppercase"
+                    >
+                      Next Neuron <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Info className="w-4 h-4 text-white/40" />
+              <h2 className="text-xs uppercase font-bold tracking-widest text-white/60">Mission Briefing</h2>
+            </div>
+            <h3 className="text-lg font-bold mb-2 italic text-emerald-400">{currentLevel.name}</h3>
+            <p className="text-sm text-white/60 leading-relaxed">
+              {currentLevel.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Right Column: Controls */}
+        <div className="lg:col-span-5 space-y-6">
+          <section className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Settings2 className="w-24 h-24" />
+            </div>
+            
+            <div className="flex items-center gap-2 mb-8">
+              <Zap className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-xs uppercase font-bold tracking-widest">Parameter Tuning</h2>
+            </div>
+
+            <div className="space-y-8">
+              {/* Initial Bias (a) */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <label className="text-[10px] uppercase text-white/40 font-bold tracking-wider">The Origin (a)</label>
+                    <p className="text-xs text-white/60">Initial Bias Parameter</p>
+                  </div>
+                  <span className="text-xl font-bold text-emerald-400 tabular-nums">{a}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  step="1"
+                  value={a}
+                  onChange={(e) => {
+                    setA(Number(e.target.value));
+                    resetLevel();
+                  }}
+                  disabled={isSimulating}
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <div className="flex justify-between text-[8px] text-white/20 uppercase font-bold">
+                  <span>Zero State</span>
+                  <span>High Bias</span>
+                </div>
+              </div>
+
+              {/* Learning Rate (d) */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <label className="text-[10px] uppercase text-white/40 font-bold tracking-wider">The Pulse (d)</label>
+                    <p className="text-xs text-white/60">Learning Rate / Step Size</p>
+                  </div>
+                  <span className="text-xl font-bold text-emerald-400 tabular-nums">{d}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="200" 
+                  step="0.5"
+                  value={d}
+                  onChange={(e) => {
+                    setD(Number(e.target.value));
+                    resetLevel();
+                  }}
+                  disabled={isSimulating}
+                  className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <div className="flex justify-between text-[8px] text-white/20 uppercase font-bold">
+                  <span>Vanishing</span>
+                  <span>Exploding</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 space-y-3">
+              <button 
+                onClick={runSimulation}
+                disabled={isSimulating || gameState === 'success'}
+                className="w-full bg-emerald-500 text-[#050505] py-4 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+              >
+                {isSimulating ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-current" />
+                    Initiate Descent
+                  </>
+                )}
+              </button>
+              
+              <button 
+                onClick={resetLevel}
+                disabled={isSimulating || steps.length === 0}
+                className="w-full bg-white/5 text-white/60 py-3 rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-white/10 transition-all disabled:opacity-0"
+              >
+                Reset Parameters
+              </button>
+            </div>
+          </section>
+
+          <section className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-6">
+            <h3 className="text-[10px] uppercase font-bold tracking-widest text-emerald-400/60 mb-4">Architect's Log</h3>
+            <ul className="space-y-3 text-[11px] leading-relaxed text-white/40">
+              <li className="flex gap-2">
+                <span className="text-emerald-500/40">01.</span>
+                <span>The <strong className="text-white/60">Origin (a)</strong> sets your starting hypothesis. Start too high, and complexity overwhelms the signal.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500/40">02.</span>
+                <span>The <strong className="text-white/60">Pulse (d)</strong> is your learning rate. Small pulses vanish; large pulses explode.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-emerald-500/40">03.</span>
+                <span>Convergence is achieved when the signal matches the <strong className="text-white/60">Target Voltage</strong> within tolerance.</span>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="mt-12 border-t border-white/10 p-8 text-center">
+        <div className="flex justify-center gap-8 mb-4">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-white/20 uppercase font-bold mb-1">Architecture</span>
+            <span className="text-xs text-white/40">Stochastic Gradient</span>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-white/20 uppercase font-bold mb-1">Engine</span>
+            <span className="text-xs text-white/40">Linear Ascent Core</span>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-white/20 uppercase font-bold mb-1">Status</span>
+            <span className="text-xs text-white/40">Stable</span>
+          </div>
+        </div>
+        <p className="text-[10px] text-white/20 uppercase tracking-[0.3em]">© 2026 Neural Logic Systems — All Rights Reserved</p>
+      </footer>
+    </div>
+  );
+}
