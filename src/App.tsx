@@ -19,7 +19,10 @@ import {
   Info,
   Save,
   HelpCircle,
-  X
+  X,
+  Volume2,
+  VolumeX,
+  Sliders
 } from 'lucide-react';
 
 // --- Types ---
@@ -273,6 +276,9 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [volume, setVolume] = useState(80);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Save progress on change
   useEffect(() => {
@@ -386,6 +392,120 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-mono selection:bg-emerald-500/30">
+      {/* Settings Overlay */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setIsSettingsOpen(false)}
+                className="absolute top-4 right-4 text-white/20 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                  <Settings2 className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h2 className="text-lg font-bold italic uppercase tracking-tight text-emerald-400">
+                  System Configuration
+                </h2>
+              </div>
+
+              <div className="space-y-8">
+                {/* Audio Controls */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-red-400" />}
+                      <span className="text-xs uppercase font-bold tracking-widest">Audio Output</span>
+                    </div>
+                    <button 
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${soundEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${soundEnabled ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] uppercase text-white/40">
+                      <span>Volume Level</span>
+                      <span>{volume}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      disabled={!soundEnabled}
+                      className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500 disabled:opacity-20"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                {/* Tutorial Reset */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs uppercase font-bold tracking-widest">Induction Protocol</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      startTutorial();
+                    }}
+                    className="w-full bg-white/5 border border-white/10 text-white/60 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-white/10 transition-all"
+                  >
+                    Restart Induction (Tutorial)
+                  </button>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                {/* Game Reset */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <span className="text-xs uppercase font-bold tracking-widest text-red-400/60">Danger Zone</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setShowResetConfirm(true);
+                    }}
+                    className="w-full bg-red-500/10 border border-red-500/20 text-red-400/60 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                  >
+                    Wipe All Neural Memory
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsSettingsOpen(false)}
+                className="w-full bg-emerald-500 text-[#050505] py-4 rounded-xl font-bold uppercase tracking-widest text-xs mt-8 hover:bg-emerald-400 transition-all"
+              >
+                Apply Changes
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Tutorial Overlay */}
       <AnimatePresence>
         {tutorialStep !== null && (
@@ -468,13 +588,22 @@ export default function App() {
             <p className="text-sm font-bold">{currentLevelIdx + 1} / {LEVELS.length}</p>
           </div>
           <div className="h-8 w-px bg-white/10" />
-          <button 
-            onClick={startTutorial}
-            className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
-            title="Start Induction Protocol"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={startTutorial}
+              className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+              title="Start Induction Protocol"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+              title="System Configuration"
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
