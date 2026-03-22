@@ -196,13 +196,54 @@ const LossLandscape = ({
 };
 
 export default function App() {
-  const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
-  const [a, setA] = useState(0); // Initial Bias
-  const [d, setD] = useState(10); // Learning Rate
+  const STORAGE_KEY = 'linear_ascent_progress';
+
+  const [currentLevelIdx, setCurrentLevelIdx] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        return typeof data.currentLevelIdx === 'number' ? data.currentLevelIdx : 0;
+      } catch (e) { return 0; }
+    }
+    return 0;
+  });
+
+  const [a, setA] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        return typeof data.a === 'number' ? data.a : 0;
+      } catch (e) { return 0; }
+    }
+    return 0;
+  });
+
+  const [d, setD] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        return typeof data.d === 'number' ? data.d : 10;
+      } catch (e) { return 10; }
+    }
+    return 10;
+  });
+
   const [steps, setSteps] = useState<number[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [gameState, setGameState] = useState<'idle' | 'success' | 'fail'>('idle');
   const [message, setMessage] = useState('');
+
+  // Save progress on change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      currentLevelIdx,
+      a,
+      d
+    }));
+  }, [currentLevelIdx, a, d]);
 
   const currentLevel = LEVELS[currentLevelIdx];
 
@@ -268,6 +309,17 @@ export default function App() {
       setD(10);
       resetLevel();
     }
+  };
+
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const clearProgress = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setCurrentLevelIdx(0);
+    setA(0);
+    setD(10);
+    resetLevel();
+    setShowResetConfirm(false);
   };
 
   return (
@@ -482,7 +534,7 @@ export default function App() {
 
           <section className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-6">
             <h3 className="text-[10px] uppercase font-bold tracking-widest text-emerald-400/60 mb-4">Architect's Log</h3>
-            <ul className="space-y-3 text-[11px] leading-relaxed text-white/40">
+            <ul className="space-y-3 text-[11px] leading-relaxed text-white/40 mb-6">
               <li className="flex gap-2">
                 <span className="text-emerald-500/40">01.</span>
                 <span>The <strong className="text-white/60">Origin (a)</strong> sets your starting hypothesis. Start too high, and complexity overwhelms the signal.</span>
@@ -496,6 +548,42 @@ export default function App() {
                 <span>Convergence is achieved when the signal matches the <strong className="text-white/60">Target Voltage</strong> within tolerance.</span>
               </li>
             </ul>
+            <AnimatePresence mode="wait">
+              {!showResetConfirm ? (
+                <motion.button 
+                  key="reset-btn"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowResetConfirm(true)}
+                  disabled={isSimulating}
+                  className="w-full bg-red-500/10 text-red-400/60 py-2 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-red-500/20 transition-all border border-red-500/20"
+                >
+                  Wipe Neural Memory (Reset)
+                </motion.button>
+              ) : (
+                <motion.div 
+                  key="confirm-reset"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="flex gap-2"
+                >
+                  <button 
+                    onClick={clearProgress}
+                    className="flex-1 bg-red-500 text-white py-2 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-red-600 transition-all"
+                  >
+                    Confirm Wipe
+                  </button>
+                  <button 
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 bg-white/5 text-white/60 py-2 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all border border-white/10"
+                  >
+                    Cancel
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
         </div>
       </main>
