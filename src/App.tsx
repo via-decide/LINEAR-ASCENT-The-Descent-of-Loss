@@ -81,6 +81,15 @@ const LEVELS: Level[] = [
     tolerance: 15,
     landscapeFn: (x) => (x * x) / 100, // Parabolic
     description: "Exponential growth. A small change in pulse leads to massive leaps. Beware the Exploding Gradient."
+  },
+  {
+    id: 5,
+    name: "Neuron Epsilon: The Adaptive Frontier",
+    targetValue: 2000,
+    maxSteps: 20,
+    tolerance: 20,
+    landscapeFn: (x) => (x * x * x) / 100000, // Cubic
+    description: "The landscape is extremely steep. A fixed pulse will almost certainly explode. Use the Adaptive Pulse to survive."
   }
 ];
 
@@ -279,6 +288,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [volume, setVolume] = useState(80);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isAdaptive, setIsAdaptive] = useState(false);
 
   // Save progress on change
   useEffect(() => {
@@ -306,7 +316,18 @@ export default function App() {
         return;
       }
 
-      const nextVal = currentLevel.landscapeFn(currentSteps[i] + d);
+      let currentD = d;
+      if (isAdaptive) {
+        const x = currentSteps[i];
+        const y1 = currentLevel.landscapeFn(x);
+        const y2 = currentLevel.landscapeFn(x + 0.1);
+        const slope = Math.abs(y2 - y1) / 0.1;
+        // Heuristic: d_adaptive = d / (1 + slope / 5)
+        // This reduces the step size in steep areas
+        currentD = d / (1 + slope / 5);
+      }
+
+      const nextVal = currentLevel.landscapeFn(currentSteps[i] + currentD);
       currentSteps.push(nextVal);
       setSteps([...currentSteps]);
       i++;
@@ -778,6 +799,26 @@ export default function App() {
                 <div className="flex justify-between text-[8px] text-white/20 uppercase font-bold">
                   <span>Vanishing</span>
                   <span>Exploding</span>
+                </div>
+              </div>
+
+              {/* Adaptive Toggle */}
+              <div className="pt-4 border-t border-white/5">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Zap className={`w-4 h-4 ${isAdaptive ? 'text-emerald-400' : 'text-white/20'}`} />
+                    <div>
+                      <label className="text-[10px] uppercase text-white/40 font-bold tracking-wider">Adaptive Pulse</label>
+                      <p className="text-[10px] text-white/20">Dynamic Gradient Scaling</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setIsAdaptive(!isAdaptive)}
+                    disabled={isSimulating}
+                    className={`w-10 h-5 rounded-full relative transition-colors ${isAdaptive ? 'bg-emerald-500' : 'bg-white/10'} disabled:opacity-50`}
+                  >
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isAdaptive ? 'right-1' : 'left-1'}`} />
+                  </button>
                 </div>
               </div>
             </div>
