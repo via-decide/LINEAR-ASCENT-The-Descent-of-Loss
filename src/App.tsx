@@ -16,7 +16,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Settings2,
-  Info
+  Info,
+  Save
 } from 'lucide-react';
 
 // --- Types ---
@@ -235,6 +236,7 @@ export default function App() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [gameState, setGameState] = useState<'idle' | 'success' | 'fail'>('idle');
   const [message, setMessage] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
 
   // Save progress on change
   useEffect(() => {
@@ -320,6 +322,16 @@ export default function App() {
     setD(10);
     resetLevel();
     setShowResetConfirm(false);
+  };
+
+  const saveGame = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      currentLevelIdx,
+      a,
+      d
+    }));
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
   };
 
   return (
@@ -518,6 +530,24 @@ export default function App() {
                   <>
                     <Play className="w-5 h-5 fill-current" />
                     Initiate Descent
+                  </>
+                )}
+              </button>
+
+              <button 
+                onClick={saveGame}
+                disabled={isSimulating}
+                className="w-full bg-white/5 text-white/80 py-3 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white/10 transition-all border border-white/5"
+              >
+                {isSaved ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Neural State Saved
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Neural State
                   </>
                 )}
               </button>
