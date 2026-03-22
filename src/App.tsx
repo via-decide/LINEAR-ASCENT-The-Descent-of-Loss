@@ -17,7 +17,9 @@ import {
   ChevronRight,
   Settings2,
   Info,
-  Save
+  Save,
+  HelpCircle,
+  X
 } from 'lucide-react';
 
 // --- Types ---
@@ -30,6 +32,12 @@ interface Level {
   tolerance: number;
   landscapeFn: (x: number) => number;
   description: string;
+}
+
+interface TutorialStep {
+  title: string;
+  content: string;
+  targetId?: string;
 }
 
 // --- Constants ---
@@ -70,6 +78,33 @@ const LEVELS: Level[] = [
     tolerance: 15,
     landscapeFn: (x) => (x * x) / 100, // Parabolic
     description: "Exponential growth. A small change in pulse leads to massive leaps. Beware the Exploding Gradient."
+  }
+];
+
+const TUTORIAL_STEPS: TutorialStep[] = [
+  {
+    title: "Neural Architect Induction",
+    content: "Welcome, Architect. You are inside a dormant Neural Network. The system has collapsed into Stochastic Chaos. Your mission is to achieve Convergent Harmony."
+  },
+  {
+    title: "The Target Valley",
+    content: "The green line in the visualizer is your Target Voltage. You must reach this valley within the specified tolerance to activate the neuron.",
+    targetId: "visualizer"
+  },
+  {
+    title: "Initial Bias (a)",
+    content: "The Origin (a) is your Initial Bias. It determines where your hypothesis begins in the vast unknown. Start too high, and you're lost in complexity.",
+    targetId: "bias-control"
+  },
+  {
+    title: "Learning Rate (d)",
+    content: "The Pulse (d) is your Learning Rate. This is the size of each logical step. Small pulses vanish; large pulses explode.",
+    targetId: "pulse-control"
+  },
+  {
+    title: "Initiate Descent",
+    content: "Once your parameters are set, initiate the descent. Watch the signal carefully. If you overshoot, you crash. If you're too slow, you vanish.",
+    targetId: "initiate-btn"
   }
 ];
 
@@ -237,6 +272,7 @@ export default function App() {
   const [gameState, setGameState] = useState<'idle' | 'success' | 'fail'>('idle');
   const [message, setMessage] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
 
   // Save progress on change
   useEffect(() => {
@@ -334,8 +370,79 @@ export default function App() {
     setTimeout(() => setIsSaved(false), 2000);
   };
 
+  const startTutorial = () => {
+    setTutorialStep(0);
+  };
+
+  const nextTutorialStep = () => {
+    if (tutorialStep !== null) {
+      if (tutorialStep < TUTORIAL_STEPS.length - 1) {
+        setTutorialStep(tutorialStep + 1);
+      } else {
+        setTutorialStep(null);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-mono selection:bg-emerald-500/30">
+      {/* Tutorial Overlay */}
+      <AnimatePresence>
+        {tutorialStep !== null && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#0a0a0a] border border-emerald-500/30 rounded-2xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(16,185,129,0.1)] relative"
+            >
+              <button 
+                onClick={() => setTutorialStep(null)}
+                className="absolute top-4 right-4 text-white/20 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                  <Cpu className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h2 className="text-lg font-bold italic uppercase tracking-tight text-emerald-400">
+                  {TUTORIAL_STEPS[tutorialStep].title}
+                </h2>
+              </div>
+
+              <p className="text-sm text-white/60 leading-relaxed mb-8">
+                {TUTORIAL_STEPS[tutorialStep].content}
+              </p>
+
+              <div className="flex justify-between items-center">
+                <div className="flex gap-1">
+                  {TUTORIAL_STEPS.map((_, i) => (
+                    <div 
+                      key={i} 
+                      className={`h-1 rounded-full transition-all ${i === tutorialStep ? 'w-4 bg-emerald-500' : 'w-1 bg-white/10'}`} 
+                    />
+                  ))}
+                </div>
+                <button 
+                  onClick={nextTutorialStep}
+                  className="bg-emerald-500 text-[#050505] px-6 py-2 rounded-xl font-bold uppercase text-xs hover:bg-emerald-400 transition-all flex items-center gap-2"
+                >
+                  {tutorialStep === TUTORIAL_STEPS.length - 1 ? "Begin Mission" : "Next Protocol"}
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="border-b border-white/10 p-6 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
@@ -360,13 +467,21 @@ export default function App() {
             <p className="text-[10px] text-white/40 uppercase">Level</p>
             <p className="text-sm font-bold">{currentLevelIdx + 1} / {LEVELS.length}</p>
           </div>
+          <div className="h-8 w-px bg-white/10" />
+          <button 
+            onClick={startTutorial}
+            className="p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+            title="Start Induction Protocol"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Game View */}
         <div className="lg:col-span-7 space-y-6">
-          <section className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+          <section id="visualizer" className="bg-[#0a0a0a] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
@@ -459,7 +574,7 @@ export default function App() {
 
             <div className="space-y-8">
               {/* Initial Bias (a) */}
-              <div className="space-y-4">
+              <div id="bias-control" className="space-y-4">
                 <div className="flex justify-between items-end">
                   <div>
                     <label className="text-[10px] uppercase text-white/40 font-bold tracking-wider">The Origin (a)</label>
@@ -487,7 +602,7 @@ export default function App() {
               </div>
 
               {/* Learning Rate (d) */}
-              <div className="space-y-4">
+              <div id="pulse-control" className="space-y-4">
                 <div className="flex justify-between items-end">
                   <div>
                     <label className="text-[10px] uppercase text-white/40 font-bold tracking-wider">The Pulse (d)</label>
@@ -517,6 +632,7 @@ export default function App() {
 
             <div className="mt-12 space-y-3">
               <button 
+                id="initiate-btn"
                 onClick={runSimulation}
                 disabled={isSimulating || gameState === 'success'}
                 className="w-full bg-emerald-500 text-[#050505] py-4 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
