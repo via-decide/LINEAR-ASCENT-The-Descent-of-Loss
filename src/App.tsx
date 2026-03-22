@@ -564,7 +564,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="border-b border-white/10 p-6 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 p-6 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50 relative">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
             <Cpu className="w-6 h-6 text-emerald-400" />
@@ -585,7 +585,21 @@ export default function App() {
           <div className="h-8 w-px bg-white/10" />
           <div className="flex flex-col items-end">
             <p className="text-[10px] text-white/40 uppercase">Level</p>
-            <p className="text-sm font-bold">{currentLevelIdx + 1} / {LEVELS.length}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-bold tabular-nums">{currentLevelIdx + 1} / {LEVELS.length}</p>
+              <div className="flex gap-1">
+                {LEVELS.map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                      i < currentLevelIdx ? 'bg-emerald-500' : 
+                      i === currentLevelIdx ? 'bg-emerald-500 animate-pulse' : 
+                      'bg-white/10'
+                    }`} 
+                  />
+                ))}
+              </div>
+            </div>
           </div>
           <div className="h-8 w-px bg-white/10" />
           <div className="flex gap-2">
@@ -604,6 +618,15 @@ export default function App() {
               <Settings2 className="w-5 h-5" />
             </button>
           </div>
+        </div>
+
+        {/* Global Progress Bar */}
+        <div className="absolute bottom-0 left-0 w-full h-[1px] bg-white/5">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentLevelIdx + 1) / LEVELS.length) * 100}%` }}
+            className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+          />
         </div>
       </header>
 
